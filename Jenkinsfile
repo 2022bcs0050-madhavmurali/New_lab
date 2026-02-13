@@ -58,9 +58,6 @@ pipeline {
         }
         
         stage('Build Docker Image') {
-            when {
-                environment name: 'SHOULD_PUBLISH', value: 'true'
-            }
             steps {
                 echo "Starting Docker Build..."
                 sh "docker build -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ."
