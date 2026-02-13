@@ -110,10 +110,11 @@ pipeline {
             }
             steps {
                 script {
-                    // Use the plugin ONLY for the registry login/logout wrapper
+                    // Force the registry URL to Docker Hub's official endpoint
                     docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
-                        sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
-                        sh "docker push ${env.DOCKER_IMAGE}:latest"
+                        // Use env. variables to ensure we are pushing exactly what we built
+                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                        sh "docker push ${DOCKER_IMAGE}:latest"
                     }
                 }
             }
