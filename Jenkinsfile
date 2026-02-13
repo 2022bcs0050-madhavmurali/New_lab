@@ -6,8 +6,6 @@ pipeline {
         DOCKER_TAG = '${BUILD_NUMBER}'
         DOCKER_CREDENTIALS_ID = '2022bcs0050-madhav-Docker'
         GITHUB_CREDENTIALS_ID = '2022bcs0050-madhav'
-        // Variable to control conditional steps
-        SHOULD_PUBLISH = "false"
     }
     
     stages {
@@ -75,6 +73,9 @@ pipeline {
                     // Initialize BEST_R2 and BEST_MSE with safer default values
                     env.BEST_R2 = "-100.0"
                     env.BEST_MSE = "100.0"
+                    
+                    // Default to false
+                    env.SHOULD_PUBLISH = "false"
                     
                     try {
                         // Use separate try-catches to ensure one failure doesn't block the other
