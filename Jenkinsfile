@@ -87,25 +87,24 @@ pipeline {
         
         stage('Build Docker Image') {
             when {
-                expression { return env.SHOULD_PUBLISH == 'true' }
+                expression { return shouldPublish }
             }
             steps {
-                script {
-                    // FIX: Separate image name from the tag argument
-                    dockerImage = docker.build("${env.DOCKER_IMAGE}", "-t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} .")
-                }
+                // Use standard shell commands to avoid Jenkins DSL validation bugs
+                sh "docker build -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} -t ${env.DOCKER_IMAGE}:latest ."
             }
         }
 
         stage('Push Docker Image') {
             when {
-                expression { return env.SHOULD_PUBLISH == 'true' }
+                expression { return shouldPublish }
             }
             steps {
                 script {
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
-                        dockerImage.push() // Pushes v12
-                        dockerImage.push('latest') 
+                        // Use sh inside the registry block to ensure auth is handled
+                        sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
+                        sh "docker push ${env.DOCKER_IMAGE}:latest"
                     }
                 }
             }
