@@ -5,7 +5,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = '2022bcs0050madhavmurali/mlops-lab'
-        DOCKER_TAG = 'latest'
+        DOCKER_TAG = 'v12'
         DOCKER_CREDENTIALS_ID = '2022bcs0050-madhav-Docker'
         GITHUB_CREDENTIALS_ID = '2022bcs0050-madhav'
     }
@@ -142,8 +142,9 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Building Docker image..."
-                    dockerImage = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    def imageName = "${DOCKER_IMAGE}:${DOCKER_TAG}"
+                    echo "Building Docker image: ${imageName}"
+                    dockerImage = docker.build(imageName)
                 }
             }
         }
@@ -157,7 +158,11 @@ pipeline {
                     echo "Pushing Docker image to Docker Hub..."
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
                         dockerImage.push()
-                        dockerImage.push('latest')
+                        // Since DOCKER_TAG is now 'latest', we don't need to push 'latest' again explicitly
+                        // But if DOCKER_TAG was dynamic (e.g. build number), we would want to push latest too.
+                        if (DOCKER_TAG != 'latest') {
+                            dockerImage.push('latest')
+                        }
                     }
                 }
             }
