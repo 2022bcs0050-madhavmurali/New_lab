@@ -109,13 +109,12 @@ pipeline {
                 expression { return shouldPublish }
             }
             steps {
-                script {
-                    // Force the registry URL to Docker Hub's official endpoint
-                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDENTIALS_ID) {
-                        // Use env. variables to ensure we are pushing exactly what we built
-                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                        sh "docker push ${DOCKER_IMAGE}:latest"
-                    }
+                // withCredentials is much more reliable for raw shell commands
+                withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIALS_ID, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh "echo \$PASS | docker login -u \$USER --password-stdin"
+                    sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
+                    sh "docker push ${env.DOCKER_IMAGE}:latest"
+                    sh "docker logout"
                 }
             }
         }
