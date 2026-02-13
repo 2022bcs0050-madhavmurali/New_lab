@@ -5,7 +5,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = '2022bcs0050madhavmurali/mlops-lab'
-        DOCKER_TAG = '${BUILD_NUMBER}'
+        DOCKER_TAG = 'latest'
         DOCKER_CREDENTIALS_ID = '2022bcs0050-madhav-Docker'
         GITHUB_CREDENTIALS_ID = '2022bcs0050-madhav'
     }
