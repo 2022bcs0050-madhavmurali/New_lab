@@ -142,8 +142,16 @@ pipeline {
             }
             steps {
                 script {
+                    echo "Debug: DOCKER_IMAGE='${DOCKER_IMAGE}'"
+                    echo "Debug: DOCKER_TAG='${DOCKER_TAG}'"
+                    if (DOCKER_TAG == null || DOCKER_TAG.trim().isEmpty()) {
+                        error "DOCKER_TAG is empty or null!"
+                    }
+                    
                     def imageName = "${DOCKER_IMAGE}:${DOCKER_TAG}"
-                    echo "Building Docker image: ${imageName}"
+                    echo "Building Docker image: '${imageName}'"
+                    
+                    // Explicitly pass image name to avoid plugin inference issues
                     dockerImage = docker.build(imageName)
                 }
             }
