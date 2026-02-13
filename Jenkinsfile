@@ -90,10 +90,10 @@ pipeline {
                 expression { return shouldPublish }
             }
             steps {
-                // We use env. variables directly in the shell. 
-                // This prevents the Jenkins Java validator from touching the strings.
-                sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
-                sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest"
+                // Use SH to build. This BYPASSES the hudson.util.FormValidation error 
+                // because Jenkins doesn't 'inspect' shell strings for Docker tags.
+                sh "docker build -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ."
+                sh "docker tag ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ${env.DOCKER_IMAGE}:latest"
             }
         }
 
@@ -102,11 +102,11 @@ pipeline {
                 expression { return shouldPublish }
             }
             steps {
-                // withDockerRegistry handles the 'docker login' and 'docker logout' automatically
                 script {
+                    // We only use the plugin here to handle the 'docker login' credentials safely
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
-                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                        sh "docker push ${DOCKER_IMAGE}:latest"
+                        sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
+                        sh "docker push ${env.DOCKER_IMAGE}:latest"
                     }
                 }
             }
