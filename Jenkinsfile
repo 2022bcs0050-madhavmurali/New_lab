@@ -69,9 +69,7 @@ pipeline {
         }
 
         stage('Push Docker Image') {
-            when {
-                environment name: 'SHOULD_PUBLISH', value: 'true'
-            }
+
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIALS_ID, usernameVariable: 'U', passwordVariable: 'P')]) {
@@ -81,6 +79,13 @@ pipeline {
                     }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'app/artifacts/**', fingerprint: true
+            echo "Artifacts archived in 'app/artifacts/'"
         }
     }
 }
