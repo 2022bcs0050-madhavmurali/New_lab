@@ -4,3 +4,5 @@ models/
 *.json
 *.ipynb
 .env
+jenkins_manager_steps.md
+Jenkinsfile.example
