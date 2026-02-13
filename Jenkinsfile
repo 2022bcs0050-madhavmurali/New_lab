@@ -142,17 +142,14 @@ pipeline {
             }
             steps {
                 script {
-                    echo "Debug: DOCKER_IMAGE='${DOCKER_IMAGE}'"
-                    echo "Debug: DOCKER_TAG='${DOCKER_TAG}'"
-                    if (DOCKER_TAG == null || DOCKER_TAG.trim().isEmpty()) {
-                        error "DOCKER_TAG is empty or null!"
-                    }
+                    // Explicitly define image and tag
+                    def imageName = "2022bcs0050madhavmurali/mlops-lab"
+                    def imageTag = "v12"
                     
-                    def imageName = "${DOCKER_IMAGE}:${DOCKER_TAG}"
-                    echo "Building Docker image: '${imageName}'"
+                    def fullImageName = "${imageName}:${imageTag}"
+                    echo "Building Docker image: '${fullImageName}'"
                     
-                    // Explicitly pass image name to avoid plugin inference issues
-                    dockerImage = docker.build(imageName)
+                    dockerImage = docker.build(fullImageName)
                 }
             }
         }
@@ -165,12 +162,11 @@ pipeline {
                 script {
                     echo "Pushing Docker image to Docker Hub..."
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
+                        // Push the tag we built (v12)
                         dockerImage.push()
-                        // Since DOCKER_TAG is now 'latest', we don't need to push 'latest' again explicitly
-                        // But if DOCKER_TAG was dynamic (e.g. build number), we would want to push latest too.
-                        if (DOCKER_TAG != 'latest') {
-                            dockerImage.push('latest')
-                        }
+                        
+                        // Also push 'latest'
+                        dockerImage.push('latest')
                     }
                 }
             }
