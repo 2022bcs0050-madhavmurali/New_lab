@@ -149,6 +149,6 @@ pipeline {
             // Archive artifacts regardless of success/failure
             archiveArtifacts artifacts: 'app/artifacts/**', fingerprint: true
             echo "Artifacts archived in 'app/artifacts/'"
-        } c
+        }
     }
 }
