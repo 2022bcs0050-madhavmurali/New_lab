@@ -1,3 +1,5 @@
+def shouldPublish = false
+
 pipeline {
     agent any
 
@@ -74,8 +76,8 @@ pipeline {
                     env.BEST_R2 = "-100.0"
                     env.BEST_MSE = "100.0"
                     
-                    // Default to false
-                    env.SHOULD_PUBLISH = "false"
+                    // Reset shouldPublish to false at start of stage
+                    shouldPublish = false
                     
                     try {
                         // Use separate try-catches to ensure one failure doesn't block the other
@@ -123,19 +125,20 @@ pipeline {
                     if (currentR2 > bestR2) {
                         echo "SUCCESS: New model R2 Score (${currentR2}) is better (higher) than baseline (${bestR2})."
                         echo "New MSE: ${currentMse} (Baseline: ${bestMse})"
-                        env.SHOULD_PUBLISH = "true"
+                        shouldPublish = true
                     } else {
                         echo "SKIP: New model R2 Score (${currentR2}) is not better than baseline (${bestR2})."
                         echo "New MSE: ${currentMse} (Baseline: ${bestMse})"
-                        env.SHOULD_PUBLISH = "false"
+                        shouldPublish = false
                     }
+                    echo "Debug: shouldPublish check = ${shouldPublish}"
                 }
             }
         }
         
         stage('Build Docker Image') {
             when {
-                expression { return env.SHOULD_PUBLISH == "true" }
+                expression { return shouldPublish }
             }
             steps {
                 script {
@@ -147,7 +150,7 @@ pipeline {
 
         stage('Push Docker Image') {
             when {
-                expression { return env.SHOULD_PUBLISH == "true" }
+                expression { return shouldPublish }
             }
             steps {
                 script {
