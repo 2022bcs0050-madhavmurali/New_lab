@@ -90,8 +90,10 @@ pipeline {
                 expression { return shouldPublish }
             }
             steps {
-                // Use standard shell commands to avoid Jenkins DSL validation bugs
-                sh "docker build -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} -t ${env.DOCKER_IMAGE}:latest ."
+                // We use env. variables directly in the shell. 
+                // This prevents the Jenkins Java validator from touching the strings.
+                sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                sh "docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest"
             }
         }
 
@@ -100,11 +102,11 @@ pipeline {
                 expression { return shouldPublish }
             }
             steps {
+                // withDockerRegistry handles the 'docker login' and 'docker logout' automatically
                 script {
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
-                        // Use sh inside the registry block to ensure auth is handled
-                        sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
-                        sh "docker push ${env.DOCKER_IMAGE}:latest"
+                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                        sh "docker push ${DOCKER_IMAGE}:latest"
                     }
                 }
             }
