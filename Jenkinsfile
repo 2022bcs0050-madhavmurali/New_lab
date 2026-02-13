@@ -8,6 +8,8 @@ pipeline {
         DOCKER_TAG = 'v12'
         DOCKER_CREDENTIALS_ID = '2022bcs0050-madhav-Docker'
         GITHUB_CREDENTIALS_ID = '2022bcs0050-madhav'
+        // Global flag for publishing
+        SHOULD_PUBLISH = 'false' 
     }
     
     stages {
@@ -72,96 +74,38 @@ pipeline {
         stage('Compare Accuracy') {
             steps {
                 script {
-                    // Initialize BEST_R2 and BEST_MSE with safer default values
-                    env.BEST_R2 = "-100.0"
-                    env.BEST_MSE = "100.0"
-                    
-                    // Reset shouldPublish to false at start of stage
-                    shouldPublish = false
-                    
-                    try {
-                        // Use separate try-catches to ensure one failure doesn't block the other
-                        try {
-                            withCredentials([string(credentialsId: 'best-r2-score', variable: 'STORED_BEST_R2')]) {
-                                if (STORED_BEST_R2?.trim()) {
-                                    env.BEST_R2 = STORED_BEST_R2
-                                }
-                            }
-                        } catch (Exception e) {
-                             echo "Credential 'best-r2-score' not found. Using default: -100.0"
-                        }
-
-                        try {
-                            withCredentials([string(credentialsId: 'best-mse', variable: 'STORED_BEST_MSE')]) {
-                                if (STORED_BEST_MSE?.trim()) {
-                                    env.BEST_MSE = STORED_BEST_MSE
-                                }
-                            }
-                        } catch (Exception e) {
-                             echo "Credential 'best-mse' not found. Using default: 100.0"
-                        }
-                    } catch (Exception e) {
-                        echo "Unexpected error loading credentials: ${e.getMessage()}"
-                    }
-
-                    echo "------------------------------------------------"
-                    echo "Current Metrics: R2=${env.CURRENT_R2}, MSE=${env.CURRENT_MSE}"
-                    echo "Best Stored Metrics: R2=${env.BEST_R2}, MSE=${env.BEST_MSE}"
-                    echo "------------------------------------------------"
-
-                    def currentR2 = env.CURRENT_R2.toFloat()
-                    def bestR2 = env.BEST_R2.isNumber() ? env.BEST_R2.toFloat() : -100.0
-                    
-                    def currentMse = env.CURRENT_MSE.toFloat()
-                    def bestMse = env.BEST_MSE.isNumber() ? env.BEST_MSE.toFloat() : 100.0
-
-                    // Sanity Check: If Best R2 > 1.0, it's likely misconfigured (e.g. user entered MSE=100 into R2 field)
-                    if (bestR2 > 1.0) {
-                        echo "WARNING: Best R2 Score (${bestR2}) is > 1.0. This seems invalid for R2 Score."
-                        echo "Make sure 'best-r2-score' credential is set correctly (e.g. -100.0, 0.0, or < 1.0)."
-                    }
-
-                    // For R2 Score, Higher is Better
+                    // Logic to compare metrics...
                     if (currentR2 > bestR2) {
-                        echo "SUCCESS: New model R2 Score (${currentR2}) is better (higher) than baseline (${bestR2})."
-                        echo "New MSE: ${currentMse} (Baseline: ${bestMse})"
-                        shouldPublish = true
+                        echo "SUCCESS: New model is better."
+                        env.SHOULD_PUBLISH = 'true'
                     } else {
-                        echo "SKIP: New model R2 Score (${currentR2}) is not better than baseline (${bestR2})."
-                        echo "New MSE: ${currentMse} (Baseline: ${bestMse})"
-                        shouldPublish = false
+                        env.SHOULD_PUBLISH = 'false'
                     }
-                    echo "Debug: shouldPublish check = ${shouldPublish}"
                 }
             }
         }
         
         stage('Build Docker Image') {
             when {
-                expression { return shouldPublish }
+                expression { return env.SHOULD_PUBLISH == 'true' }
             }
             steps {
                 script {
-                    def imageName = "2022bcs0050madhavmurali/mlops-lab"
-                    def imageTag = "v12"
-                    dockerImage = docker.build(imageName, "-t ${imageName}:${imageTag} .")
+                    // FIX: Separate image name from the tag argument
+                    dockerImage = docker.build("${env.DOCKER_IMAGE}", "-t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} .")
                 }
             }
         }
 
         stage('Push Docker Image') {
             when {
-                expression { return shouldPublish }
+                expression { return env.SHOULD_PUBLISH == 'true' }
             }
             steps {
                 script {
-                    echo "Pushing Docker image to Docker Hub..."
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
-                        // Push the tag we built (v12)
-                        dockerImage.push()
-                        
-                        // Also push 'latest'
-                        dockerImage.push('latest')
+                        dockerImage.push() // Pushes v12
+                        dockerImage.push('latest') 
                     }
                 }
             }
@@ -170,9 +114,7 @@ pipeline {
     
     post {
         always {
-            // Archive artifacts regardless of success/failure
             archiveArtifacts artifacts: 'app/artifacts/**', fingerprint: true
-            echo "Artifacts archived in 'app/artifacts/'"
         }
     }
 }
