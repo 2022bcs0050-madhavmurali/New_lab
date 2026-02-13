@@ -111,7 +111,7 @@ pipeline {
             steps {
                 script {
                     // Force the registry URL to Docker Hub's official endpoint
-                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
+                    docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDENTIALS_ID) {
                         // Use env. variables to ensure we are pushing exactly what we built
                         sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
                         sh "docker push ${DOCKER_IMAGE}:latest"
