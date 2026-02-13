@@ -146,8 +146,8 @@ pipeline {
                     def imageName = "2022bcs0050madhavmurali/mlops-lab"
                     def imageTag = "v12"
                     
-                    def fullImageName = "${imageName}:${imageTag}"
-                    echo "Building Docker image: '${fullImageName}'"
+                    def fullImageName = "2022bcs0050madhavmurali/mlops-lab:v12"
+                    echo "Building Docker image: This one lkjasd;fj'"
                     
                     dockerImage = docker.build(fullImageName)
                 }
