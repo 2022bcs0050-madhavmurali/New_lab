@@ -1,5 +1,3 @@
-def shouldPublish = false
-
 pipeline {
     agent any
 
@@ -7,7 +5,8 @@ pipeline {
         DOCKER_IMAGE = '2022bcs0050madhavmurali/mlops-lab'
         DOCKER_TAG = 'v12'
         DOCKER_CREDENTIALS_ID = '2022bcs0050-madhav-Docker'
-        GITHUB_CREDENTIALS_ID = '2022bcs0050-madhav'
+        // We use an env variable for the flag
+        SHOULD_PUBLISH = 'false' 
     }
     
     stages {
@@ -17,21 +16,12 @@ pipeline {
             }
         }
         
-        stage('Setup Python Virtual Environment') {
+        stage('Setup & Train') {
             steps {
                 sh ''' 
                 python3 -m venv venv
                 . venv/bin/activate
-                pip install --upgrade pip
                 pip install -r requirements.txt
-                '''
-            }
-        }
-        
-        stage('Train Model') {
-            steps {
-                sh '''
-                . venv/bin/activate
                 python src/training.py
                 mkdir -p app/artifacts
                 cp models/metrics.json app/artifacts/
@@ -40,54 +30,28 @@ pipeline {
             }
         }
         
-        stage('Read Accuracy') {
+        stage('Read & Compare Accuracy') {
             steps {
                 script {
-                    env.CURRENT_MSE = sh(
-                        script: "python3 -c 'import json; print(json.load(open(\"app/artifacts/metrics.json\"))[\"mse\"])'",
-                        returnStdout: true
-                    ).trim()
+                    // Get current metrics
+                    def currentR2 = sh(script: "python3 -c 'import json; print(json.load(open(\"app/artifacts/metrics.json\"))[\"r2_score\"])'", returnStdout: true).trim().toFloat()
                     
-                    env.CURRENT_R2 = sh(
-                        script: "python3 -c 'import json; print(json.load(open(\"app/artifacts/metrics.json\"))[\"r2_score\"])'",
-                        returnStdout: true
-                    ).trim()
-                    
-                    echo "Current MSE: ${env.CURRENT_MSE}"
-                    echo "Current R2 Score: ${env.CURRENT_R2}"
-                }
-            }
-        }
-        
-        stage('Compare Accuracy') {
-            steps {
-                script {
-                    // Initialize defaults
+                    // Default best R2
                     def bestR2 = -100.0
                     
-                    // Try to fetch the best R2 from Jenkins Credentials
                     try {
                         withCredentials([string(credentialsId: 'best-r2-score', variable: 'STORED_BEST_R2')]) {
-                            if (STORED_BEST_R2?.trim()) {
-                                bestR2 = STORED_BEST_R2.toFloat()
-                            }
+                            if (STORED_BEST_R2) { bestR2 = STORED_BEST_R2.toFloat() }
                         }
                     } catch (Exception e) {
-                        echo "Credential 'best-r2-score' not found. Using default: -100.0"
+                        echo "No baseline found, using default."
                     }
 
-                    def currentR2 = env.CURRENT_R2.toFloat()
-
-                    echo "------------------------------------------------"
-                    echo "Comparison: Current R2 (${currentR2}) vs Best R2 (${bestR2})"
-                    echo "------------------------------------------------"
+                    echo "Comparing: Current ${currentR2} vs Best ${bestR2}"
 
                     if (currentR2 > bestR2) {
-                        echo "SUCCESS: New model is better."
-                        shouldPublish = true
-                    } else {
-                        echo "SKIP: New model is not better."
-                        shouldPublish = false
+                        echo "Condition met. Setting SHOULD_PUBLISH to true."
+                        env.SHOULD_PUBLISH = 'true'
                     }
                 }
             }
@@ -95,10 +59,10 @@ pipeline {
         
         stage('Build Docker Image') {
             when {
-                expression { return shouldPublish }
+                environment name: 'SHOULD_PUBLISH', value: 'true'
             }
             steps {
-                // BYPASSING Jenkins Docker Plugin Validation by using raw shell
+                echo "Starting Docker Build..."
                 sh "docker build -t ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ."
                 sh "docker tag ${env.DOCKER_IMAGE}:${env.DOCKER_TAG} ${env.DOCKER_IMAGE}:latest"
             }
@@ -106,24 +70,17 @@ pipeline {
 
         stage('Push Docker Image') {
             when {
-                expression { return shouldPublish }
+                environment name: 'SHOULD_PUBLISH', value: 'true'
             }
             steps {
-                // withCredentials is much more reliable for raw shell commands
-                withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIALS_ID, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                    sh "echo \$PASS | docker login -u \$USER --password-stdin"
-                    sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
-                    sh "docker push ${env.DOCKER_IMAGE}:latest"
-                    sh "docker logout"
+                script {
+                    withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIALS_ID, usernameVariable: 'U', passwordVariable: 'P')]) {
+                        sh "echo \$P | docker login -u \$U --password-stdin"
+                        sh "docker push ${env.DOCKER_IMAGE}:${env.DOCKER_TAG}"
+                        sh "docker push ${env.DOCKER_IMAGE}:latest"
+                    }
                 }
             }
-        }
-    }
-    
-    post {
-        always {
-            archiveArtifacts artifacts: 'app/artifacts/**', fingerprint: true
-            echo "Artifacts archived in 'app/artifacts/'"
         }
     }
 }
