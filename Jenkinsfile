@@ -149,7 +149,7 @@ pipeline {
                     def fullImageName = "2022bcs0050madhavmurali/mlops-lab:v12"
                     echo "Building Docker image: This one lkjasd;fj'"
                     
-                    dockerImage = docker.build(fullImageName)
+                    dockerImage = docker.build(fullImageName,".")
                 }
             }
         }
