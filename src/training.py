@@ -2,6 +2,9 @@ import pandas as pd
 import joblib
 import json
 import os
+from dotenv import load_dotenv
+import mlflow
+import mlflow.sklearn
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, Ridge
 from sklearn.preprocessing import StandardScaler
@@ -12,6 +15,13 @@ from sklearn.metrics import mean_squared_error, r2_score
 # ---------------------------------------------------------
 STUDENT_NAME = "Madhav Murali"
 ROLL_NUMBER = "2022BCS0050"
+
+# Load environment variables (e.g., AWS credentials) from .env file
+load_dotenv()
+
+# Set MLflow tracking URI and experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment(f"wine-quality-{ROLL_NUMBER.lower()}-v2")
 
 # Experiment settings
 TEST_SIZE = 0.3
@@ -59,6 +69,12 @@ X_test_scaled = scaler.transform(X_test)
 # ---------------------------------------------------------
 # 3. Model Training
 # ---------------------------------------------------------
+mlflow.start_run()
+mlflow.log_params({
+    "test_size": TEST_SIZE,
+    "model_type": MODEL_TYPE,
+    "alpha": ALPHA if MODEL_TYPE in ["Lasso", "Ridge"] else "N/A"
+})
 if MODEL_TYPE == "LinearRegression":
     model = LinearRegression()
 elif MODEL_TYPE == "Lasso":
@@ -91,6 +107,9 @@ os.makedirs(models_dir, exist_ok=True)
 model_path = os.path.join(models_dir, 'model.pkl')
 joblib.dump(model, model_path)
 
+# Log the model to MLflow
+mlflow.sklearn.log_model(model, "model")
+
 # Save Metrics to JSON
 metrics = {
     "model_type": MODEL_TYPE,
@@ -105,6 +124,9 @@ metrics = {
 metrics_path = os.path.join(models_dir, 'metrics.json')
 with open(metrics_path, 'w') as f:
     json.dump(metrics, f, indent=4)
+
+# Log metrics to MLflow
+mlflow.log_metrics({"mse": mse, "r2_score": r2})
 
 # ---------------------------------------------------------
 # 6. Generate GitHub Step Summary
@@ -130,4 +152,5 @@ report_path = os.path.join(models_dir, 'summary_report.md')
 with open(report_path, 'w') as f:
     f.write(summary_content)
 
+mlflow.end_run()
 print("Training completed and artifacts saved.")
